@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sarkari Exam Photo & Signature Maker</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+.tab-active{background:#2563eb;color:#fff}
+.tab-inactive{background:#e5e7eb;color:#374151}
+canvas{image-rendering:auto}
+</style>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans">
+<div class="max-w-2xl mx-auto px-4 py-6">
+<h1 class="text-2xl font-bold text-center text-blue-700 mb-1">📸 Sarkari Exam Photo & Signature Maker</h1>
+<p class="text-center text-gray-500 text-sm mb-4">Name/Date Stamp + KB Compressor</p>
+
+<div class="flex gap-2 mb-5">
+<button onclick="switchTab(0)" id="tab0" class="flex-1 py-2 rounded-lg font-semibold text-sm transition tab-active">Passport Photo</button>
+<button onclick="switchTab(1)" id="tab1" class="flex-1 py-2 rounded-lg font-semibold text-sm transition tab-inactive">Signature Compressor</button>
+</div>
+
+<div class="bg-white rounded-xl shadow p-5 space-y-4">
+<div>
+<label class="block text-sm font-medium mb-1" id="uploadLabel">Upload Photo</label>
+<input type="file" accept="image/*" id="fileInput" class="block w-full text-sm file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white file:font-semibold file:cursor-pointer">
+</div>
+
+<div id="photoOpts" class="space-y-3">
+<div class="grid grid-cols-2 gap-3">
+<input id="candName" placeholder="Candidate Name" class="border rounded-lg px-3 py-2 text-sm w-full">
+<div class="flex gap-1">
+<input id="dop" type="date" class="border rounded-lg px-3 py-2 text-sm flex-1">
+<button onclick="document.getElementById('dop').value=new Date().toISOString().slice(0,10);render()" class="bg-gray-200 hover:bg-gray-300 rounded-lg px-2 text-xs font-semibold whitespace-nowrap">Today</button>
+</div>
+</div>
+<label class="flex items-center gap-2 text-sm"><input type="checkbox" id="showStrip" checked onchange="render()"> Show Name & Date strip on photo</label>
+<div>
+<span class="text-sm font-medium">Aspect Ratio:</span>
+<div class="flex flex-wrap gap-2 mt-1" id="ratioGroup">
+<button onclick="setRatio(3.5,4.5)" class="ratio-btn px-3 py-1 rounded-lg text-xs font-semibold bg-blue-600 text-white">3.5×4.5 (SSC/Passport)</button>
+<button onclick="setRatio(1,1)" class="ratio-btn px-3 py-1 rounded-lg text-xs font-semibold bg-gray-200">Square</button>
+<button onclick="setRatio(0,0)" class="ratio-btn px-3 py-1 rounded-lg text-xs font-semibold bg-gray-200">Original</button>
+</div>
+</div>
+</div>
+
+<div>
+<span class="text-sm font-medium">Target Size (KB):</span>
+<div class="flex flex-wrap gap-2 mt-1 items-center">
+<button onclick="setKB(20)" class="kb-btn px-3 py-1 rounded-lg text-xs font-semibold bg-gray-200">20 KB</button>
+<button onclick="setKB(50)" class="kb-btn px-3 py-1 rounded-lg text-xs font-semibold bg-blue-600 text-white">50 KB</button>
+<button onclick="setKB(100)" class="kb-btn px-3 py-1 rounded-lg text-xs font-semibold bg-gray-200">100 KB</button>
+<input id="customKB" type="number" min="5" max="1000" placeholder="Custom" class="border rounded-lg px-3 py-1 text-sm w-20" oninput="targetKB=+this.value||50;document.querySelectorAll('.kb-btn').forEach(b=>b.className=b.className.replace('bg-blue-600 text-white','bg-gray-200'));render()">
+</div>
+</div>
+
+<div class="text-center">
+<canvas id="canvas" class="mx-auto border rounded-lg max-w-full" style="max-height:400px"></canvas>
+<p id="info" class="text-sm text-gray-500 mt-2"></p>
+</div>
+
+<button onclick="download()" id="dlBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg text-sm hidden transition">⬇ Download JPG</button>
+</div>
+</div>
+
+<script>
+const C=document.getElementById('canvas'),ctx=C.getContext('2d');
+let img=null,tab=0,targetKB=50,ratioW=3.5,ratioH=4.5,finalBlob=null;
+
+function switchTab(t){
+  tab=t;
+  document.getElementById('tab0').className='flex-1 py-2 rounded-lg font-semibold text-sm transition '+(t===0?'tab-active':'tab-inactive');
+  document.getElementById('tab1').className='flex-1 py-2 rounded-lg font-semibold text-sm transition '+(t===1?'tab-active':'tab-inactive');
+  document.getElementById('photoOpts').classList.toggle('hidden',t===1);
+  document.getElementById('uploadLabel').textContent=t===0?'Upload Photo':'Upload Signature';
+  render();
+}
+
+document.getElementById('fileInput').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{const i=new Image();i.onload=()=>{img=i;render()};i.src=ev.target.result};
+  r.readAsDataURL(f);
+};
+document.getElementById('candName').oninput=()=>render();
+document.getElementById('dop').oninput=()=>render();
+
+function setRatio(w,h){
+  ratioW=w;ratioH=h;
+  document.querySelectorAll('.ratio-btn').forEach((b,i)=>{
+    const active=(i===0&&w===3.5)||(i===1&&w===1)||(i===2&&w===0);
+    b.className='ratio-btn px-3 py-1 rounded-lg text-xs font-semibold '+(active?'bg-blue-600 text-white':'bg-gray-200');
+  });
+  render();
+}
+
+function setKB(kb){
+  targetKB=kb;document.getElementById('customKB').value='';
+  document.querySelectorAll('.kb-btn').forEach(b=>{
+    const v=+b.textContent;
+    b.className='kb-btn px-3 py-1 rounded-lg text-xs font-semibold '+(v===kb?'bg-blue-600 text-white':'bg-gray-200');
+  });
+  render();
+}
+
+function render(){
+  if(!img){C.width=300;C.height=200;ctx.fillStyle='#f3f4f6';ctx.fillRect(0,0,300,200);ctx.fillStyle='#9ca3af';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('Upload an image to preview',150,105);document.getElementById('info').textContent='';document.getElementById('dlBtn').classList.add('hidden');return}
+
+  let dw=img.width,dh=img.height;
+  if(tab===0&&ratioW>0){const r=ratioW/ratioH;dw=Math.min(img.width,img.height*r);dh=dw/r}
+
+  const sx=(img.width-dw)/2,sy=(img.height-dh)/2;
+  const outW=Math.round(dw),stripH=tab===0&&document.getElementById('showStrip').checked?Math.round(dh*0.08):0;
+  const outH=Math.round(dh)+stripH;
+
+  C.width=outW;C.height=outH;
+  ctx.drawImage(img,sx,sy,dw,dh,0,0,outW,outH-stripH);
+
+  if(stripH>0){
+    ctx.fillStyle='#fff';ctx.fillRect(0,outH-stripH,outW,stripH);
+    ctx.fillStyle='#000';ctx.textAlign='center';ctx.textBaseline='middle';
+    const fs=Math.max(10,Math.round(stripH*0.45));ctx.font='bold '+fs+'px sans-serif';
+    const name=document.getElementById('candName').value.trim();
+    const date=document.getElementById('dop').value;
+    const parts=[];if(name)parts.push(name);if(date)parts.push('DOP: '+date);
+    ctx.fillText(parts.join('  |  ')||'',outW/2,outH-stripH/2);
+  }
+
+  compress();
+}
+
+async function compress(){
+  const maxBytes=targetKB*1024;
+  let lo=0.01,hi=1,blob=null;
+  for(let i=0;i<12;i++){
+    const mid=(lo+hi)/2;
+    blob=await toBlob(mid);
+    if(blob.size>maxBytes)hi=mid;else lo=mid;
+  }
+  if(blob.size>maxBytes)blob=await toBlob(lo);
+  finalBlob=blob;
+  const kb=(blob.size/1024).toFixed(1);
+  document.getElementById('info').textContent=`${C.width}×${C.height}px  •  ${kb} KB  (target ≤${targetKB} KB)`;
+  document.getElementById('dlBtn').classList.remove('hidden');
+}
+
+function toBlob(q){return new Promise(r=>C.toBlob(b=>r(b),'image/jpeg',q))}
+
+function download(){
+  if(!finalBlob)return;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(finalBlob);
+  a.download=(tab===0?'photo':'signature')+'_'+targetKB+'kb.jpg';
+  a.click();URL.revokeObjectURL(a.href);
+}
+</script>
+</body>
+</html>
