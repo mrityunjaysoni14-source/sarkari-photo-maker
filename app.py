@@ -23,8 +23,8 @@ HTML = r'''<!DOCTYPE html>
 <meta name="twitter:card" content="summary">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📸</text></svg>">
 
-<!-- Preconnect for performance -->
-<link rel="preconnect" href="https://cdn.tailwindcss.com">
+<!-- Tailwind CSS (Bina defer ke) -->
+<script src="https://cdn.tailwindcss.com"></script>
 
 <!-- Critical CSS inlined for FCP -->
 <style>
@@ -39,14 +39,12 @@ body{font-family:system-ui,-apple-system,sans-serif;background:linear-gradient(1
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
 </style>
 
-<!-- Tailwind loaded async for non-blocking -->
-<script src="https://cdn.tailwindcss.com" defer></script>
-
 <!-- Structured Data for SEO -->
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"WebApplication","name":"Sarkari Exam Photo & Signature Maker","description":"Free online passport photo and signature maker with name/date stamp and KB compressor for SSC, UPSC, Railway, Bank exams.","applicationCategory":"UtilityApplication","operatingSystem":"All","offers":{"@type":"Offer","price":"0","priceCurrency":"INR"},"browserRequirements":"Requires JavaScript"}
 </script>
 </head>
+
 
 <body>
 <!-- Skip Navigation for Accessibility -->
